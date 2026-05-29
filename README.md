@@ -23,7 +23,7 @@ Whether you're building a checkout flow, a subscription service, or a cross-chai
 ## Features
 
 - **One-click payments** — Customers initiate transfers without managing gas, bridges, or slippage manually.
-- **Multi-chain routing** — Automatically selects the optimal path across supported networks to minimize cost and latency.
+- **Multi-chain routing** — Automatically selects the optimal path across supported Substrate networks (Aleph Zero, Astar, Shiden) to minimize cost and latency.
 - **Instant settlement** — Transactions are confirmed and settled in seconds, not minutes.
 - **Non-custodial** — The engine never holds user funds; all transfers go directly between parties.
 - **Composable** — Drop the engine into any stack via a clean API and SDK.
@@ -81,9 +81,9 @@ cp .env.example .env
 
 | Variable | Description |
 |---|---|
-| `RPC_URL` | RPC endpoint for the target chain |
-| `PRIVATE_KEY` | Signing key for the engine wallet |
-| `SETTLEMENT_CONTRACT` | Address of the deployed settlement contract |
+| `RPC_URL` | Substrate RPC endpoint for the target chain (e.g. Aleph Zero, Astar) |
+| `PRIVATE_KEY` | SR25519 signing key (SS58 format) for the engine wallet |
+| `SETTLEMENT_CONTRACT` | SS58 address of the deployed LiquidityPool contract |
 | `NETWORK` | Target network (`mainnet`, `testnet`) |
 
 ### Running locally
@@ -109,11 +109,11 @@ POST /api/v1/pay
 Content-Type: application/json
 
 {
-  "from": "0xSENDER_ADDRESS",
-  "to": "0xRECIPIENT_ADDRESS",
+  "from": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+  "to": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
   "amount": "50.00",
   "currency": "USDC",
-  "network": "auto"
+  "network": "aleph-zero"
 }
 ```
 
@@ -135,14 +135,15 @@ Content-Type: application/json
 GET /api/v1/pay/:txHash
 ```
 
-### Supported currencies
+### Supported tokens
 
 | Symbol | Network |
 |---|---|
-| USDC | Ethereum, Arbitrum, Base |
-| USDT | Ethereum, BNB Chain |
-| ETH | Ethereum, Arbitrum |
-| BNB | BNB Chain |
+| AZERO | Aleph Zero |
+| USDC | Aleph Zero (PSP22) |
+| USDT | Aleph Zero (PSP22) |
+| DOT | Astar, Shiden |
+| ASTR | Astar |
 
 ---
 
@@ -153,11 +154,11 @@ A JavaScript/TypeScript SDK is available for easy integration:
 ```ts
 import { NodusEngine } from "@nodus/core-engine"
 
-const engine = new NodusEngine({ network: "mainnet" })
+const engine = new NodusEngine({ network: "aleph-zero" })
 
 const receipt = await engine.pay({
-  from: "0xSENDER",
-  to: "0xRECIPIENT",
+  from: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+  to: "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
   amount: "100",
   currency: "USDC",
 })
