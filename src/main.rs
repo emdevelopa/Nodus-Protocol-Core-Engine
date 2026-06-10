@@ -6,6 +6,7 @@ mod config;
 mod engine;
 mod idempotency;
 mod middleware;
+mod pool;
 mod rates;
 mod retry;
 mod router;
@@ -25,6 +26,7 @@ use api::{AppContext, AppState};
 use circuit_breaker::CircuitBreaker;
 use config::{Config, Network};
 use engine::Engine;
+use pool::{contract::ContractClient, soroban::SorobanRpc};
 use rates::RateService;
 use retry::RetryConfig;
 use webhook::WebhookStore;
@@ -52,28 +54,59 @@ async fn main() {
     };
 
     let stellar = Arc::new(CircuitBreaker::new(stellar_raw, 5, 30));
-
     let retry_config = RetryConfig::new(cfg.max_retry_attempts, cfg.retry_initial_delay_ms);
     let engine = Arc::new(Engine::new(vec![stellar], retry_config));
     let webhooks = Arc::new(WebhookStore::new());
     let rates = RateService::new();
 
-    let state: AppState = Arc::new(AppContext { engine, rates, webhooks });
+    let pool_client = cfg.pool.as_ref().map(|p| {
+        tracing::info!(
+            contract = %p.contract_id,
+            rpc = %p.soroban_rpc_url,
+            "AMM pool contract configured"
+        );
+        ContractClient::new(
+            SorobanRpc::new(&p.soroban_rpc_url),
+            &p.contract_id,
+            &p.token_0,
+            &p.token_1,
+        )
+    });
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    if pool_client.is_none() {
+        tracing::warn!("SOROBAN_RPC_URL / POOL_CONTRACT_ID not set — pool endpoints will return 503");
+    }
+
+    let state: AppState = Arc::new(AppContext {
+        engine,
+        rates,
+        webhooks,
+        pool: pool_client,
+    });
+
+    let cors = CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any);
 
     let app = Router::new()
+        // Health
         .route("/healthz",                             get(api::health::healthz))
+        // Payments
         .route("/api/v1/payments",                     post(api::payments::initiate).get(api::payments::list))
         .route("/api/v1/payments/simulate",            post(api::payments::simulate))
         .route("/api/v1/payments/batch",               post(api::batch::submit))
         .route("/api/v1/payments/:id",                 get(api::payments::get))
         .route("/api/v1/payments/:id/receipt",         get(api::payments::receipt))
+        // Fees & Rates
         .route("/api/v1/fees/current",                 get(api::fees::current))
         .route("/api/v1/rates",                        get(api::rates::get))
+        // AMM Pool
+        .route("/api/v1/pool/reserves",                get(api::pool::reserves))
+        .route("/api/v1/pool/quote",                   get(api::pool::quote))
+        .route("/api/v1/pool/lp-balance",              get(api::pool::lp_balance))
+        .route("/api/v1/pool/stats",                   get(api::pool::pool_stats))
+        .route("/api/v1/pool/build/swap",              post(api::pool::build_swap))
+        .route("/api/v1/pool/build/add-liquidity",     post(api::pool::build_add_liquidity))
+        .route("/api/v1/pool/build/remove-liquidity",  post(api::pool::build_remove_liquidity))
+        // Webhooks
         .route("/api/v1/webhooks",                     post(api::webhooks::register).get(api::webhooks::list))
         .route("/api/v1/webhooks/:id",                 delete(api::webhooks::delete))
         .route("/api/v1/webhooks/:id/toggle",          put(api::webhooks::toggle))
