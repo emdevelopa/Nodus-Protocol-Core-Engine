@@ -1,21 +1,13 @@
 use async_trait::async_trait;
 use crate::utils::{EngineError, FeeEstimate, Payment};
 
-// ── Trait ────────────────────────────────────────────────────────────────────
-
 #[async_trait]
 pub trait ChainAdapter: Send + Sync {
-    /// Submit a payment to the underlying chain. Returns the transaction hash.
     async fn submit(&self, payment: &Payment) -> Result<String, EngineError>;
-    /// Fetch current fee estimates from the chain.
     async fn fee_estimate(&self) -> Result<FeeEstimate, EngineError>;
-    /// Check whether a submitted transaction has been confirmed on-chain.
     async fn is_confirmed(&self, tx_hash: &str) -> Result<bool, EngineError>;
-    /// Human-readable name for this adapter (used in logs and health checks).
     fn name(&self) -> &'static str;
 }
-
-// ── Stellar adapter ──────────────────────────────────────────────────────────
 
 pub struct StellarAdapter {
     horizon_url: String,
@@ -33,12 +25,10 @@ impl StellarAdapter {
         }
     }
 
-    /// Default Stellar Horizon URL for mainnet.
     pub fn mainnet() -> Self {
         Self::new("https://horizon.stellar.org")
     }
 
-    /// Stellar Horizon URL for testnet.
     pub fn testnet() -> Self {
         Self::new("https://horizon-testnet.stellar.org")
     }
@@ -47,8 +37,6 @@ impl StellarAdapter {
 #[async_trait]
 impl ChainAdapter for StellarAdapter {
     async fn submit(&self, payment: &Payment) -> Result<String, EngineError> {
-        // Production: construct XDR, sign with engine keypair, submit via
-        // POST /transactions. Here we validate the addresses and simulate success.
         validate_stellar_address(&payment.sender)?;
         validate_stellar_address(&payment.recipient)?;
 
@@ -58,19 +46,19 @@ impl ChainAdapter for StellarAdapter {
 
         tracing::info!(
             payment_id = %payment.id,
-            from       = %payment.sender,
-            to         = %payment.recipient,
-            amount     = payment.amount,
-            token      = %payment.token,
+            from = %payment.sender,
+            to = %payment.recipient,
+            amount = payment.amount,
+            token = %payment.token,
             "submitting to Stellar"
         );
 
-        // Simulate a transaction hash derived from the payment ID.
+        // Derives a deterministic mock tx hash from the payment ID.
+        // Replace with real XDR construction + Horizon POST /transactions.
         let tx_hash = format!(
             "{:0>64}",
             payment.id.chars().filter(|c| c.is_alphanumeric()).collect::<String>()
         );
-
         Ok(tx_hash)
     }
 
@@ -106,7 +94,7 @@ impl ChainAdapter for StellarAdapter {
                 })
             }
             Err(e) => {
-                tracing::warn!("fee_stats request failed: {e}, using defaults");
+                tracing::warn!("fee_stats unavailable: {e}");
                 Ok(FeeEstimate::default())
             }
             _ => Ok(FeeEstimate::default()),
@@ -126,14 +114,10 @@ impl ChainAdapter for StellarAdapter {
     }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 fn validate_stellar_address(addr: &str) -> Result<(), EngineError> {
     if addr.len() == 56 && addr.starts_with('G') && addr.chars().all(|c| c.is_ascii_alphanumeric()) {
         Ok(())
     } else {
-        Err(EngineError::InvalidRequest(format!(
-            "invalid Stellar address: {addr}"
-        )))
+        Err(EngineError::InvalidRequest(format!("invalid Stellar address: {addr}")))
     }
 }
