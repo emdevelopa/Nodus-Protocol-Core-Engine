@@ -4,9 +4,10 @@
 
 <p>The payment processing backbone of the Nodus Protocol ecosystem.<br/>Fast, composable, and built for the decentralized web.</p>
 
+[![CI](https://github.com/Nodus-protocol/Nodus-Protocol-Core-Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Nodus-protocol/Nodus-Protocol-Core-Engine/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/Rust-1.82-orange?logo=rust)](Cargo.toml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Status: Active](https://img.shields.io/badge/Status-Active-green.svg)]()
 
 </div>
 
