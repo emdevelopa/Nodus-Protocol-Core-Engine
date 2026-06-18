@@ -11,6 +11,8 @@ pub struct Config {
     #[allow(dead_code)]
     pub webhook_timeout_secs: u64,
     pub pool: Option<PoolConfig>,
+    pub redis_url: Option<String>,
+    pub idempotency_ttl_secs: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -76,6 +78,11 @@ impl Config {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(5),
             pool,
+            redis_url: env::var("REDIS_URL").ok(),
+            idempotency_ttl_secs: env::var("IDEMPOTENCY_TTL_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(86_400),
         }
     }
 }
